@@ -63,6 +63,11 @@ run the script like so:
 
 And get a nice interactive experience.
 
+> [!NOTE]
+> To run in dry mode, just set the DRY environment variable to `true`. You won't
+> be prompted for this, as I didn't want to break the program for exisitng
+> users. Create an issue if you'd like this to be changed, I'm all ears.
+
 This works on any Forgejo instance.
 
 You can also set up a systemd service and timer to run every once in a while.
