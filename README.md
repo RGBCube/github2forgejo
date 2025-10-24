@@ -14,6 +14,10 @@ Migrates a GitHub users or organizations repositories to a Forgejo instance.
 
 Accepted environment variables:
 
+  DRY:
+    Only print the actions that will be taken, and don't execute.
+    Defaults to false, and a lack of the variable will be interpreted as false.
+
   GITHUB_USER:
     The user or organization to fetch the repositories from.
     Case sensitive.

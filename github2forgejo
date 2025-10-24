@@ -12,6 +12,10 @@ def or-default [default: closure] {
 #
 # Accepted environment variables:
 #
+#   DRY:
+#     Only print the actions that will be taken, and don't execute.
+#     Defaults to false, and a lack of the variable will be interpreted as false.
+#     
 #   GITHUB_USER:
 #     The user or organization to fetch the repositories from.
 #     Case sensitive.
@@ -39,6 +43,8 @@ def or-default [default: closure] {
 #
 # To leave an environment variable unspecified, set it to an empty string.
 def main [] {
+  let dry = $env | get --optional DRY | into bool --relaxed
+
   let github_user    = $env | get --optional GITHUB_USER                    | or-default { input $"(ansi red)GitHub username: (ansi reset)" }
   let github_token   = $env | get --optional GITHUB_TOKEN                   | or-default { input $"(ansi red)GitHub access token (ansi yellow)\((ansi blue)optional, only used for private repositories(ansi yellow))(ansi red): (ansi reset)" }
   let forgejo_url    = $env | get --optional FORGEJO_URL                    | or-default { input $"(ansi green)Forgejo instance URL \(with https://): (ansi reset)" } | str trim --right --char "/"
@@ -97,6 +103,11 @@ def main [] {
     $forgejo_not_on_github | each {|forgejo_repo|
       print --no-newline $"(ansi red)Deleting (ansi yellow)($forgejo_url)/($forgejo_repo.full_name)(ansi red) because the mirror source doesn't exist on GitHub anymore...(ansi reset)"
 
+      if $dry {
+        print $" (ansi yellow)Dry run, so can't know result as I'm not actually doing it.(ansi reset)"
+        return
+      }
+
       (http delete $"($forgejo_url)/api/v1/repos/($forgejo_repo.full_name)"
         -H [ Authorization $"token ($forgejo_token)" ])
 
@@ -114,6 +125,11 @@ def main [] {
     } else {
       $"(ansi green)public(ansi blue)(char space)"
     }) repository (ansi purple)($github_repo.html_url)(ansi blue) to (ansi white_bold)($forgejo_url)/($forgejo_user)/($github_repo.name)(ansi blue)...(ansi reset)"
+
+    if $dry {
+      print $" (ansi yellow)Dry run, so can't know result as I'm not actually doing it.(ansi reset)"
+      return
+    }
 
     let response = (
       http post $"($forgejo_url)/api/v1/repos/migrate"

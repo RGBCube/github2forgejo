@@ -41,7 +41,8 @@
               File containing environment variables required by GitHub2Forgejo,
               in the format of an EnvironmentFile as described by {manpage}`systemd.exec(5)`.
 
-              You must set ALL of these environment variables:
+              You must set ALL of these environment variables (and to leave
+              one "unspecified" you will have to set it to an emtpy string):
 
                 GITHUB_USER:
                   The user or organization to fetch the repositories from.
@@ -68,7 +69,11 @@
                   Whether to delete a mirrored repo from the Forgejo instance if the
                   source on GitHub doesn't exist anymore. Must be either "true" or "false".
 
-              You must set an environment variable to an empty string to leave it "unset".
+              You can also set these, but they are not required:
+
+                DRY:
+                  Only print the actions that will be taken, and don't execute.
+                  Defaults to false, and a lack of the variable will be interpreted as false.
             '';
 
             example = "/secrets/github2forgejo.env";
