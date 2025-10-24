@@ -32,16 +32,15 @@ stdenvNoCC.mkDerivation {
     runHook preFixup
 
     substituteInPlace $out/bin/github2forgejo \
-      --replace '/usr/bin/env nu' '${nushell}/bin/nu'
+      --replace '/usr/bin/env nu' '${lib.getExe nushell}'
 
     runHook postFixup
   '';
 
-  meta = with lib; {
+  meta = {
     description = "GitHub to Forgejo migration script";
     homepage    = "https://git.rgbcu.be/RGBCube/GitHub2Forgejo";
-    license     = licenses.gpl3Only;
+    license     = lib.licenses.gpl3Only;
     mainProgram = "github2forgejo";
-    maintainers = with maintainers; [ RGBCube ];
   };
 }

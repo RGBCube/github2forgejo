@@ -12,21 +12,21 @@
 
     eachSystem = lib.genAttrs (import systems);
   in {
-    packages = eachSystem (system: let pkgs = import nixpkgs { inherit system; }; in rec {
+    packages = eachSystem (system: let pkgs = import nixpkgs { inherit system; }; in {
       inherit (self.overlays.github2forgejo pkgs pkgs) github2forgejo;
 
-      default = github2forgejo;
+      default = self.packages.${system}.github2forgejo;
     });
 
-    overlays = rec {
-      default        = github2forgejo;
-      github2forgejo = (final: super: {
-        github2forgejo = super.callPackage ./package.nix {};
+    overlays =  {
+      default        = self.overlays.github2forgejo;
+      github2forgejo = (final: _super: {
+        github2forgejo = final.callPackage ./package.nix {};
       });
     };
 
-    nixosModules = rec {
-      default        = github2forgejo;
+    nixosModules = {
+      default        = self.nixosModules.github2forgejo;
       github2forgejo = { config, utils, lib, pkgs, ... }: let
         cfg = config.services.github2forgejo;
       in {
