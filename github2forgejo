@@ -31,21 +31,23 @@ def or-default [default: closure] {
 #
 # To leave an environment variable unspecified, set it to an empty string.
 def main [] {
-  let github_user    = $env | get -i GITHUB_USER                    | or-default { input $"(ansi red)GitHub username: (ansi reset)" }
-  let github_token   = $env | get -i GITHUB_TOKEN                   | or-default { input $"(ansi red)GitHub access token (ansi yellow)\((ansi blue)optional, only used for private repositories(ansi yellow))(ansi red): (ansi reset)" }
-  let forgejo_url    = $env | get -i FORGEJO_URL                    | or-default { input $"(ansi green)Forgejo instance URL \(with https://): (ansi reset)" } | str trim --right --char "/"
-  let forgejo_user   = $env | get -i FORGEJO_USER                   | or-default { input $"(ansi green)Forgejo username or organization to migrate to: (ansi reset)" }
-  let forgejo_token  = $env | get -i FORGEJO_TOKEN                  | or-default { input $"(ansi green)Forgejo access token: (ansi reset)" }
-  let strategy       = $env | get -i STRATEGY                       | or-default { [ Mirrored Cloned ] | input list $"(ansi cyan)Should the repos be mirrored, or just cloned once?(ansi reset)" } | str downcase
-  let force_sync     = $env | get -i FORCE_SYNC | try { into bool } | or-default { [ "Yup, delete them" Nope ] | input list $"(ansi yellow)Should mirrored repos that don't have a GitHub source anymore be deleted?(ansi reset)" | $in != "Nope" }
+  let github_user    = $env | get --optional GITHUB_USER                    | or-default { input $"(ansi red)GitHub username: (ansi reset)" }
+  let github_token   = $env | get --optional GITHUB_TOKEN                   | or-default { input $"(ansi red)GitHub access token (ansi yellow)\((ansi blue)optional, only used for private repositories(ansi yellow))(ansi red): (ansi reset)" }
+  let forgejo_url    = $env | get --optional FORGEJO_URL                    | or-default { input $"(ansi green)Forgejo instance URL \(with https://): (ansi reset)" } | str trim --right --char "/"
+  let forgejo_user   = $env | get --optional FORGEJO_USER                   | or-default { input $"(ansi green)Forgejo username or organization to migrate to: (ansi reset)" }
+  let forgejo_token  = $env | get --optional FORGEJO_TOKEN                  | or-default { input $"(ansi green)Forgejo access token: (ansi reset)" }
+  let strategy       = $env | get --optional STRATEGY                       | or-default { [ Mirrored Cloned ] | input list $"(ansi cyan)Should the repos be mirrored, or just cloned once?(ansi reset)" } | str downcase
+  let force_sync     = $env | get --optional FORCE_SYNC | try { into bool } | or-default { [ "Yup, delete them" Nope ] | input list $"(ansi yellow)Should mirrored repos that don't have a GitHub source anymore be deleted?(ansi reset)" | $in != "Nope" }
 
   let github_repos = do {
     def get-repos-at [page_nr: number] {
-      if $github_token != "" {
+      if $github_token == "" {
+        http get $"https://api.github.com/users/($github_user)/repos?per_page=100?page=($page_nr)"
+      } else {
+        # This fetchs all repos you have access to and have interacted with. Not just your own.
+        # We filter that later.
         (http get $"https://api.github.com/user/repos?per_page=100&page=($page_nr)"
         -H [ Authorization $"token ($github_token)" ])
-      } else {
-        http get $"https://api.github.com/users/($github_user)/repos?per_page=100?page=($page_nr)"
       }
     }
 
@@ -53,14 +55,15 @@ def main [] {
     mut page_nr = 1
 
     loop {
-      let next = get-repos-at $page_nr
-      $repos = ($repos | append $next)
+      let page = get-repos-at $page_nr
+      $repos ++= $page
 
-      if ($next | length) >= 100 {
-        $page_nr += 1
-      } else {
-        break
+      if ($page | length) < 100 {
+        # Less than the per_page means it's the end.
+        break;
       }
+
+      $page_nr += 1
     }
 
     $repos | where { get owner.login | $in == $github_user }
@@ -77,7 +80,7 @@ def main [] {
       | where { if $github_token == "" { not $in.private } else { true } }
     )
 
-    let forgejo_not_on_github = ($forgejo_mirrored_repos | where { not ($in.name in $github_repo_names) })
+    let forgejo_not_on_github = ($forgejo_mirrored_repos | where { $in.name not-in $github_repo_names })
 
     $forgejo_not_on_github | each {|forgejo_repo|
       print --no-newline $"(ansi red)Deleting (ansi yellow)($forgejo_url)/($forgejo_repo.full_name)(ansi red) because the mirror source doesn't exist on GitHub anymore...(ansi reset)"
@@ -91,11 +94,14 @@ def main [] {
 
   # Mirror repos that do exist on GitHub to Forgejo.
   $github_repos | each {|github_repo|
-    print --no-newline $"(ansi blue)(
-      $strategy | str capitalize | str replace "ed" "ing"
-    ) (
-      [ $"(ansi green)public(ansi blue)(char space)" $"(ansi red)private(ansi blue)" ] | get ($github_repo.private | into int)
-    ) repository (ansi purple)($github_repo.html_url)(ansi blue) to (ansi white_bold)($forgejo_url)/($forgejo_user)/($github_repo.name)(ansi blue)...(ansi reset)"
+    print --no-newline $"(ansi blue)(match $strategy {
+      "mirrored" => "Mirroring"
+      "cloned" => "Cloning"
+    }) (if $github_repo.private {
+      $"(ansi red)private(ansi blue)"
+    } else {
+      $"(ansi green)public(ansi blue)(char space)"
+    }) repository (ansi purple)($github_repo.html_url)(ansi blue) to (ansi white_bold)($forgejo_url)/($forgejo_user)/($github_repo.name)(ansi blue)...(ansi reset)"
 
     let response = (
       http post $"($forgejo_url)/api/v1/repos/migrate"
@@ -111,7 +117,7 @@ def main [] {
       } | merge (if $github_token != "" { { auth_token: $github_token } } else { {} }))
     )
 
-    let error_message = ($response | get -i message)
+    let error_message = ($response | get --optional message)
 
     if ($error_message != null and $error_message =~ "already exists") {
       print $" (ansi yellow)Already mirrored!(ansi reset)"
