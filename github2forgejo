@@ -39,6 +39,10 @@ def main [] {
   let strategy       = $env | get --optional STRATEGY                       | or-default { [ Mirrored Cloned ] | input list $"(ansi cyan)Should the repos be mirrored, or just cloned once?(ansi reset)" } | str downcase
   let force_sync     = $env | get --optional FORCE_SYNC | try { into bool } | or-default { [ "Yup, delete them" Nope ] | input list $"(ansi yellow)Should mirrored repos that don't have a GitHub source anymore be deleted?(ansi reset)" | $in != "Nope" }
 
+  if $strategy not-in [ "mirrored", "cloned" ] {
+    print --stderr $"(ansi red)Invalid strategy! Must be either: (ansi green)mirrored(ansi red) or (ansi cyan)cloned(ansi red).(ansi reset)"
+  }
+
   let github_repos = do {
     def get-repos-at [page_nr: number] {
       if $github_token == "" {
@@ -110,7 +114,7 @@ def main [] {
       -H [ Authorization $"token ($forgejo_token)" ]
       ({
         clone_addr: $github_repo.html_url
-        mirror: ($strategy != "cloned")
+        mirror: ($strategy == "mirrored")
         private: $github_repo.private
         repo_owner: $forgejo_user
         repo_name: $github_repo.name
