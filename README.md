@@ -10,16 +10,24 @@ Plain simple, just install [Nushell](https://nushell.sh) and run the script:
 <summary>Help Output</summary>
 
 ```
-Migrates a GitHub users repositories to a Forgejo instance.
+Migrates a GitHub users or organizations repositories to a Forgejo instance.
 
 Accepted environment variables:
 
-  GITHUB_USER: The user to fetch the repositories from. Case sensitive.
-  GITHUB_TOKEN: An access token for fetching private repositories. Optional.
+  GITHUB_USER:
+    The user or organization to fetch the repositories from.
+    Case sensitive.
+  GITHUB_TOKEN:
+    An access token for fetching private repositories.
+    Optional. Set to empty string to not ask interactively.
 
-  FORGEJO_URL: The URL to the Forgejo instance. Must include the protocol (https://).
-  FORGEJO_USER: The user to migrate the repositories to.
-  FORGEJO_TOKEN: An access token for the specified user.
+  FORGEJO_URL:
+    The URL to the Forgejo instance.
+    Must include the protocol (http(s)://) as it is not just a domain.
+  FORGEJO_USER:
+    The user or organization to migrate the repositories to.
+  FORGEJO_TOKEN:
+    An access token for the specified user.
 
   STRATEGY:
     The strategy. Valid options are "mirrored" or "cloned" (case insensitive).
