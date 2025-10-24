@@ -97,33 +97,18 @@ def main [] {
       [ $"(ansi green)public(ansi blue)(char space)" $"(ansi red)private(ansi blue)" ] | get ($github_repo.private | into int)
     ) repository (ansi purple)($github_repo.html_url)(ansi blue) to (ansi white_bold)($forgejo_url)/($forgejo_user)/($github_repo.name)(ansi blue)...(ansi reset)"
 
-    let migrate_body = if $github_token != "" {
-      {
-        clone_addr: $github_repo.html_url
-        auth_token: $github_token
-        mirror: ($strategy != "cloned")
-        private: $github_repo.private
-
-        repo_owner: $forgejo_user
-        repo_name: $github_repo.name
-      }
-    } else {
-      {
-        clone_addr: $github_repo.html_url
-        mirror: ($strategy != "cloned")
-        private: $github_repo.private
-
-        repo_owner: $forgejo_user
-        repo_name: $github_repo.name
-      }
-    }
-
     let response = (
       http post $"($forgejo_url)/api/v1/repos/migrate"
       --allow-errors
       -t application/json
       -H [ Authorization $"token ($forgejo_token)" ]
-      $migrate_body
+      ({
+        clone_addr: $github_repo.html_url
+        mirror: ($strategy != "cloned")
+        private: $github_repo.private
+        repo_owner: $forgejo_user
+        repo_name: $github_repo.name
+      } | merge (if $github_token != "" { { auth_token: $github_token } } else { {} }))
     )
 
     let error_message = ($response | get -i message)
